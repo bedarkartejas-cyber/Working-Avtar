@@ -4,3 +4,4 @@ livekit
 livekit-agents
 livekit-plugins-anam
 livekit-plugins-google
+python-dotenv
