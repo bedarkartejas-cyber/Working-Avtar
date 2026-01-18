@@ -16,20 +16,21 @@ from app.utils.safety import keep_alive
 
 async def entrypoint(ctx: JobContext):
     # 1. Connect and subscribe to all tracks
+    # Using the standard connection method from your main entrypoint
     await ctx.connect(auto_subscribe=AutoSubscribe.SUBSCRIBE_ALL)
 
     # 2. Initialize LLM and Avatar
-    # Ensure create_llm() is configured with a system prompt that enforces brevity
+    # Ensure create_llm() uses your NEW Gemini API key from environment variables
     llm = create_llm()
     avatar = create_avatar()
 
-    # 3. Configure the Session for stable turn-taking
-    # Increased endpointing delay prevents the agent from cutting in too quickly
+    # 3. Configure the Session for stable sync between Gemini and Anam
+    # Increased endpointing delays prevent the "marking playout as done arbitrarily" errors
     session = AgentSession(
         llm=llm,
         video_sampler=VoiceActivityVideoSampler(speaking_fps=0, silent_fps=0),
         preemptive_generation=False,
-        min_endpointing_delay=1.5,  # Wait 1.5s of silence before replying
+        min_endpointing_delay=2.0,  # Increased to 2s to allow Avatar buffer to sync
         max_endpointing_delay=5.0,
     )
 
@@ -37,8 +38,8 @@ async def entrypoint(ctx: JobContext):
     # The avatar provides the visual/audio output for the LLM's responses
     await avatar.start(session, room=ctx.room)
     
-    # We pass the system instructions here to control Gemini's behavior
-    # Added instructions to enforce one-sentence replies to stop the "run-on" sentences
+    # 5. Production Instructions
+    # Added strict rules to enforce one-sentence replies to stop the "run-on" sentences
     production_instructions = (
         f"{SYSTEM_INSTRUCTIONS}\n"
         "STRICT RULE: Reply in only ONE or TWO short sentences. "
@@ -51,11 +52,14 @@ async def entrypoint(ctx: JobContext):
         room_input_options=room_io.RoomInputOptions(video_enabled=True),
     )
 
-    # 5. Initial Greeting
+    # 6. Initial Greeting
+    # Triggers a brief greeting once the session is live
     session.generate_reply(instructions="Give a very brief 1-sentence greeting.")
     
-    # 6. Maintain Connection
+    # 7. Maintain Connection
+    # Uses the utility to keep the process alive while the user is connected
     await keep_alive(ctx)
 
 if __name__ == "__main__":
+    # Required for the LiveKit CLI to start the worker correctly
     cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint))
