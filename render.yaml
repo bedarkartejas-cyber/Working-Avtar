@@ -1,0 +1,28 @@
+services:
+  # Service 1: The Token API
+  - type: web
+    name: avatar-backend
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.api.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: LIVEKIT_API_KEY
+        sync: false
+      - key: LIVEKIT_API_SECRET
+        sync: false
+      - key: LIVEKIT_URL
+        sync: false
+
+  # Service 2: The AI Agent Worker
+  - type: worker
+    name: avatar-agent-worker
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m app.main dev
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: ANAM_API_KEY
+        sync: false
+      - key: ANAM_AVATAR_ID
+        sync: false

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Avatar Chat - Dia</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script>
+    
+    <style>
+        body { background: #0f172a; color: white; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        #video-container { width: 800px; height: 450px; background: #1e293b; border-radius: 16px; display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative; border: 2px solid #334155; }
+        video { width: 100%; height: 100%; object-fit: cover; }
+        .controls { margin-top: 24px; text-align: center; }
+        button { padding: 14px 40px; background: #3b82f6; color: white; border: none; border-radius: 10px; font-weight: 600; cursor: pointer; }
+        button:disabled { background: #475569; }
+        #log { margin-top: 15px; color: #94a3b8; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+
+    <div id="video-container">
+        <p id="placeholder">Avatar Room Ready</p>
+    </div>
+
+    <div class="controls">
+        <button id="start-btn" onclick="startSession()">Start Interaction</button>
+        <div id="log">Status: Ready</div>
+    </div>
+
+    <script>
+        async function startSession() {
+            const btn = document.getElementById('start-btn');
+            const log = document.getElementById('log');
+            const videoContainer = document.getElementById('video-container');
+            
+            // Fix SDK Detection
+            const LK = window.LivekitClient;
+            if (!LK) {
+                log.innerText = "Error: LiveKit SDK failed to load.";
+                return;
+            }
+
+            btn.disabled = true;
+            log.innerText = "Status: Connecting...";
+
+            try {
+                const roomName = "dia_room_" + Math.floor(Math.random() * 1000);
+                const identity = "user_" + Math.floor(Math.random() * 1000);
+
+                // IMPORTANT: Using backticks (`) for the template literal and POST method
+                const response = await fetch(`http://127.0.0.1:8000/livekit/token?room=${roomName}&identity=${identity}`, {
+                    method: 'POST'
+                });
+
+                if (!response.ok) throw new Error("Backend connection failed.");
+                const data = await response.json();
+
+                const room = new LK.Room();
+
+                // Handle Video/Audio tracks
+                room.on(LK.RoomEvent.TrackSubscribed, (track) => {
+                    if (track.kind === 'video') {
+                        document.getElementById('placeholder').style.display = 'none';
+                        const el = track.attach();
+                        videoContainer.appendChild(el);
+                    }
+                    if (track.kind === 'audio') {
+                        track.attach();
+                    }
+                });
+
+                // Connect to LiveKit Cloud
+                await room.connect(data.url, data.token);
+                
+                // Publish Mic to trigger the Agent
+                await room.localParticipant.setMicrophoneEnabled(true);
+                
+                log.innerText = "Status: Online. Speak now!";
+
+            } catch (err) {
+                console.error(err);
+                log.innerText = "Error: " + err.message;
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>
