@@ -1,12 +1,11 @@
 FROM python:3.11
 
-# Prevent Python from writing .pyc files and enable unbuffered logging
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-# Install system dependencies for audio/video processing
+# Install system dependencies and supervisor
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libavdevice-dev \
@@ -16,6 +15,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libswresample-dev \
     libswscale-dev \
     pkg-config \
+    supervisor \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
@@ -23,9 +23,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app ./app
 
-# Create a non-root user for security
-RUN useradd -m appuser
-USER appuser
+# Setup supervisor configuration
+RUN mkdir -p /var/log/supervisor
+COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
-# Default command
-CMD ["python", "-m", "app.main"]
+# Use supervisord to start both processes
+CMD ["/usr/bin/supervisord"]
